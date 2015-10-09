@@ -177,6 +177,8 @@ type Config struct {
 	SSHUser       string
 	SSHKeyfile    string
 	InstallSSHKey InstallSSHKey
+
+	KubernetesServiceNodePort int
 }
 
 type InstallSSHKey func(user string, data []byte) error
@@ -248,6 +250,12 @@ type Master struct {
 
 	// storage for third party objects
 	thirdPartyStorage storage.Interface
+
+	// map from api path to storage for those objects
+	thirdPartyResources map[string]*thirdpartyresourcedataetcd.REST
+	// protects the map
+	thirdPartyResourcesLock   sync.RWMutex
+	KubernetesServiceNodePort int
 }
 
 // NewEtcdStorage returns a storage.Interface for the provided arguments or an error if the version
@@ -381,7 +389,8 @@ func New(c *Config) *Master {
 		// TODO: serviceReadWritePort should be passed in as an argument, it may not always be 443
 		serviceReadWritePort: 443,
 
-		installSSHKey: c.InstallSSHKey,
+		installSSHKey:             c.InstallSSHKey,
+		KubernetesServiceNodePort: c.KubernetesServiceNodePort,
 	}
 
 	var handlerContainer *restful.Container
@@ -693,9 +702,10 @@ func (m *Master) NewBootstrapController() *Controller {
 
 		PublicIP: m.clusterIP,
 
-		ServiceIP:         m.serviceReadWriteIP,
-		ServicePort:       m.serviceReadWritePort,
-		PublicServicePort: m.publicReadWritePort,
+		ServiceIP:                 m.serviceReadWriteIP,
+		ServicePort:               m.serviceReadWritePort,
+		PublicServicePort:         m.publicReadWritePort,
+		KubernetesServiceNodePort: m.KubernetesServiceNodePort,
 	}
 }
 
